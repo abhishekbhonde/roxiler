@@ -149,7 +149,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {loading ? (
-          <p className="text-center text-teal-400">Loading data...</p>
+          <p className="text-center text-teal-400">Backend is slow please wait....</p>
         ) : error ? (
           <p className="text-center text-red-400">{error}</p>
         ) : (
