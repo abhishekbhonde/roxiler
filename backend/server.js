@@ -4,11 +4,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const transactionRoutes = require('./routes/transactions');
-
+require('dotenv').config();
 const app = express();
 
+console.log(process.env.MONGO_URL)
 // Connect to MongoDB (replace with your DB URI if not using localhost)
-mongoose.connect('mongodb://localhost:27017/transactionsDB', {
+mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 }).then(() => {

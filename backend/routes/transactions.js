@@ -1,28 +1,25 @@
 const express = require('express');
 const axios = require('axios');
-const Transaction = require('../models/Transaction'); // Import the Transaction model
+const Transaction = require('../models/Transaction');
 const router = express.Router();
 
-// Initialize the database with seed data from the third-party API
+
 router.get('/initialize', async (req, res) => {
   try {
     const response = await axios.get('https://s3.amazonaws.com/roxiler.com/product_transaction.json');
     const transactions = response.data;
 
-    // Clear existing data in the database
     await Transaction.deleteMany({});
 
-    // Prepare the data to insert into the database
     const transactionDocs = transactions.map(transaction => ({
       title: transaction.title,
       description: transaction.description,
       price: transaction.price,
       category: transaction.category,
-      dateOfSale: new Date(transaction.dateOfSale), // Ensure the date is a Date object
+      dateOfSale: new Date(transaction.dateOfSale),
       sold: transaction.sold,
     }));
 
-    // Insert data into the database
     await Transaction.insertMany(transactionDocs);
 
     res.status(200).json({ message: 'Database initialized with seed data' });
@@ -32,70 +29,58 @@ router.get('/initialize', async (req, res) => {
   }
 });
 
-// List transactions with search and pagination
 router.get('/', async (req, res) => {
-    try {
-      const { month, search, page = 1, perPage = 10 } = req.query;
-  
-      if (!month) {
-        return res.status(400).json({ message: 'Month parameter is required' });
-      }
-  
-      const filter = {
-        // Use the $month operator to match the month part of dateOfSale
-        $expr: {
-          $eq: [{ $month: "$dateOfSale" }, parseInt(month)]
-        }
-      };
-  
-      let query = Transaction.find(filter);
-  
-      // Apply search if the search query is provided
-      if (search) {
-        const isNumericSearch = !isNaN(search); // Check if the search query is numeric
-  
-        if (isNumericSearch) {
-          // If the search is a number, search within the price field
-          query = query.or([
-            { price: parseFloat(search) }, // Convert the search to a float for numeric comparison
-          ]);
-        } else {
-          // Otherwise, apply the search for title, description, or price
-          query = query.or([
-            { title: { $regex: search, $options: 'i' } },
-            { description: { $regex: search, $options: 'i' } },
-          ]);
-        }
-      }
-  
-      // Clone the query to reuse it for the countDocuments call
-      const countQuery = query.clone();
-  
-      // Pagination logic
-      const start = (page - 1) * perPage;
-      const end = page * perPage;
-  
-      // Get the total number of matching transactions (without pagination)
-      const totalTransactions = await countQuery.countDocuments();
-  
-      // Fetch the actual transactions with pagination applied
-      const transactions = await query.skip(start).limit(perPage);
-  
-      // Return paginated transactions with total count and pages
-      res.json({
-        transactions,
-        total: totalTransactions,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalTransactions / perPage),
-      });
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      res.status(500).json({ message: 'Error fetching transactions', error: error.message });
+  try {
+    const { month, search, page = 1, perPage = 10 } = req.query;
+
+    if (!month) {
+      return res.status(400).json({ message: 'Month parameter is required' });
     }
-  });
-  
-  
-// Statistics API - Get total sales, sold items, and not sold items for a given month
+
+    const filter = {
+      $expr: {
+        $eq: [{ $month: "$dateOfSale" }, parseInt(month)]
+      }
+    };
+
+    let query = Transaction.find(filter);
+
+    if (search) {
+      const isNumericSearch = !isNaN(search);
+
+      if (isNumericSearch) {
+        query = query.or([
+          { price: parseFloat(search) },
+        ]);
+      } else {
+        query = query.or([
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+        ]);
+      }
+    }
+
+    const countQuery = query.clone();
+
+    const start = (page - 1) * perPage;
+    const end = page * perPage;
+
+    const totalTransactions = await countQuery.countDocuments();
+
+    const transactions = await query.skip(start).limit(perPage);
+
+    res.json({
+      transactions,
+      total: totalTransactions,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalTransactions / perPage),
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    res.status(500).json({ message: 'Error fetching transactions', error: error.message });
+  }
+});
+
 router.get('/statistics', async (req, res) => {
   try {
     const { month } = req.query;
@@ -125,7 +110,6 @@ router.get('/statistics', async (req, res) => {
   }
 });
 
-// Bar Chart Data API - Get item count for different price ranges in a given month
 router.get('/bar-chart', async (req, res) => {
   try {
     const { month } = req.query;
@@ -138,7 +122,6 @@ router.get('/bar-chart', async (req, res) => {
         $eq: [{ $month: "$dateOfSale" }, parseInt(month)] }
     };
 
-    // Define price ranges
     const priceRanges = [
       { min: 0, max: 100 },
       { min: 101, max: 200 },
@@ -152,7 +135,6 @@ router.get('/bar-chart', async (req, res) => {
       { min: 901, max: Infinity },
     ];
 
-    // Query the database and count items within each price range
     const result = await Promise.all(priceRanges.map(async range => {
       const count = await Transaction.countDocuments({
         ...filter,
@@ -171,7 +153,6 @@ router.get('/bar-chart', async (req, res) => {
   }
 });
 
-// Pie Chart Data API - Get the number of items per category for a given month
 router.get('/pie-chart', async (req, res) => {
   try {
     const { month } = req.query;
@@ -197,7 +178,6 @@ router.get('/pie-chart', async (req, res) => {
   }
 });
 
-// Combined API - Get statistics, bar chart, and pie chart data for the given month
 router.get('/combined', async (req, res) => {
   try {
     const { month } = req.query;
@@ -205,7 +185,6 @@ router.get('/combined', async (req, res) => {
       return res.status(400).json({ message: 'Month parameter is required' });
     }
 
-    // Fetch all necessary data in parallel
     const [statistics, barChartData, pieChartData] = await Promise.all([
       axios.get(`http://localhost:5000/api/transactions/statistics?month=${month}`),
       axios.get(`http://localhost:5000/api/transactions/bar-chart?month=${month}`),
