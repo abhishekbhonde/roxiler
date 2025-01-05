@@ -51,6 +51,8 @@ interface Statistics {
 const Dashboard: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("3"); // Default to March
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [totalPages, setTotalPages] = useState<number>(1);
   const [page, setPage] = useState<number>(1);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
@@ -91,17 +93,35 @@ const Dashboard: React.FC = () => {
     setLoading(false);
   };
 
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    if (term.trim() === "") {
+      setFilteredTransactions(transactions);
+    } else {
+      setFilteredTransactions(
+        transactions.filter(
+          (transaction) =>
+            transaction.title.toLowerCase().includes(term.toLowerCase()) ||
+            transaction.description.toLowerCase().includes(term.toLowerCase()) ||
+            transaction.category.toLowerCase().includes(term.toLowerCase())
+        )
+      );
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [selectedMonth, page]);
 
+  useEffect(() => {
+    setFilteredTransactions(transactions);
+  }, [transactions]);
+
   return (
     <div className="p-8 bg-gray-900 text-white min-h-screen">
       <div className="container mx-auto">
-        <h1 className="text-4xl font-bold mb-6 text-center text-teal-400">
-          Dashboard
-        </h1>
-  
+        <h1 className="text-4xl font-bold mb-6 text-center text-teal-400">Dashboard</h1>
+
         {/* Month Selector */}
         <div className="mb-8 flex justify-center">
           <select
@@ -116,7 +136,18 @@ const Dashboard: React.FC = () => {
             ))}
           </select>
         </div>
-  
+
+        {/* Search Input */}
+        <div className="mb-8 flex justify-center">
+          <input
+            type="text"
+            className="bg-gray-800 text-white p-3 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400 w-1/2"
+            placeholder="Search by title, description, or category..."
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </div>
+
         {loading ? (
           <p className="text-center text-teal-400">Loading data...</p>
         ) : error ? (
@@ -125,9 +156,7 @@ const Dashboard: React.FC = () => {
           <>
             {/* Transactions Table */}
             <div className="overflow-x-auto mb-8">
-              <h2 className="text-2xl font-bold mb-4 text-teal-400 text-center">
-                Transactions Table
-              </h2>
+              <h2 className="text-2xl font-bold mb-4 text-teal-400 text-center">Transactions Table</h2>
               <table className="table-auto w-full bg-gray-800 text-white rounded-lg overflow-hidden">
                 <thead>
                   <tr className="bg-gray-700">
@@ -140,7 +169,7 @@ const Dashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((transaction) => (
+                  {filteredTransactions.map((transaction) => (
                     <tr key={transaction._id} className="border-b border-gray-700">
                       <td className="px-4 py-2">
                         <img
@@ -165,7 +194,7 @@ const Dashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
-  
+
             {/* Pagination */}
             <div className="flex justify-center mt-8 mb-8 space-x-4">
               <button
@@ -183,37 +212,25 @@ const Dashboard: React.FC = () => {
                 Next
               </button>
             </div>
-  
+
             {/* Statistics */}
             {statistics && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-                  <h3 className="text-lg font-semibold text-teal-400">
-                    Total Sale
-                  </h3>
-                  <p className="text-2xl font-bold text-white">
-                    ${statistics.totalAmount}
-                  </p>
+                  <h3 className="text-lg font-semibold text-teal-400">Total Sale</h3>
+                  <p className="text-2xl font-bold text-white">${statistics.totalAmount}</p>
                 </div>
                 <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-                  <h3 className="text-lg font-semibold text-teal-400">
-                    Sold Items
-                  </h3>
-                  <p className="text-2xl font-bold text-white">
-                    {statistics.totalItemsSold}
-                  </p>
+                  <h3 className="text-lg font-semibold text-teal-400">Sold Items</h3>
+                  <p className="text-2xl font-bold text-white">{statistics.totalItemsSold}</p>
                 </div>
                 <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-                  <h3 className="text-lg font-semibold text-teal-400">
-                    Not Sold Items
-                  </h3>
-                  <p className="text-2xl font-bold text-white">
-                    {statistics.totalItemsNotSold}
-                  </p>
+                  <h3 className="text-lg font-semibold text-teal-400">Not Sold Items</h3>
+                  <p className="text-2xl font-bold text-white">{statistics.totalItemsNotSold}</p>
                 </div>
               </div>
             )}
-  
+
             {/* Bar Chart */}
             {barChartData && (
               <div className="mb-8">
@@ -234,22 +251,17 @@ const Dashboard: React.FC = () => {
                   options={{
                     responsive: true,
                     plugins: { legend: { display: false } },
-                    scales: {
-                      y: { beginAtZero: true },
-                      x: {
-                        barThickness: 12,  // Adjust bar thickness further for smaller display
-                      },
-                    },
+                    scales: { y: { beginAtZero: true } },
                   }}
-                  height={150}  // Adjusted for better size
-                  width={300}   // Adjusted for better size
+                  height={150}
+                  width={300}
                 />
               </div>
             )}
-  
+
             {/* Pie Chart */}
             {pieChartData && (
-              <div className="mb-8 h-[730px] mr-auto ml-auto flex items-center justify-center flex-col mt-[150px]">
+              <div className="mb-8 md:w-[700px] flex flex-col gap-3 md:mt-[110px] ml-auto mr-auto">
                 <h2 className="text-2xl font-bold mb-4 text-teal-400 text-center">
                   Transactions by Category
                 </h2>
@@ -273,8 +285,8 @@ const Dashboard: React.FC = () => {
                     responsive: true,
                     plugins: { legend: { position: "top" } },
                   }}
-                  height={250} // Adjusted size for better fit
-                  width={200}  // Adjusted size for better fit
+                  height={100}
+                  width={100}
                 />
               </div>
             )}
