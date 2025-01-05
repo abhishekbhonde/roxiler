@@ -15,7 +15,7 @@ import {
 // Register Chart.js components
 ChartJS.register(LineElement, BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend);
 
-const API_BASE_URL = "http://localhost:5000/api/transactions";
+const API_BASE_URL = "https://roxiler-assignment-fqge.onrender.com/api/transactions";
 
 const months = [
   "January",
